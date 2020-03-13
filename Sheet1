@@ -1,0 +1,136 @@
+Private RngSudo As Range, RngTip As Range
+Private RngA As Range, RngB As Range, RngC As Range
+Private DicA As Object
+
+Sub Initialize()
+	If WorksheetFunction.CountA([B2:J10]) = 0 Then Rows("1:10").Delete
+	Dim i As Variant, r As Integer, k
+	Set DicA = CreateObject("Scripting.Dictionary")
+	DicA.Add "1", "1"
+	DicA.Add "2", "4"
+	DicA.Add "3", "7"
+	DicA.Add "4", "28"
+	DicA.Add "5", "31"
+	DicA.Add "6", "34"
+	DicA.Add "7", "55"
+	DicA.Add "8", "58"
+	DicA.Add "9", "61"
+	Set RngSudo = Range("B2").Resize(9, 9)
+	Set RngTip = Range("L2").Resize(9, 1)
+	ActiveWorkbook.Names.Add Name:="RngSudo", RefersTo:=RngSudo
+	Union(RngSudo, RngTip, Range("N2:N4")).Select
+	Call SetStyleDefault
+	RngTip.Value = Application.Transpose(DicA.Keys)
+	Range("N2:N4").Value = Application.Transpose(Split("A B C", " "))
+	RngTip.Offset(0, 1).FormulaR1C1 = "=9-COUNTIF(RngSudo,RC[-1])"
+	For Each i In DicA
+		Set RngA = RngSudo(DicA.Item(i)).Resize(3, 3)
+		For r = 7 To 10
+		RngA.Borders(r).Weight = xlMedium
+		Next
+		RngA.Offset(0, 15).Value = i
+		RngA.Offset(0, 25).Value = 0
+	Next
+End Sub
+
+Sub SetStyleDefault()
+	Selection.EntireColumn.ColumnWidth = Application.CentimetersToPoints(0.225)
+	Selection.EntireRow.RowHeight = Application.CentimetersToPoints(1.33)
+	Selection.Borders.LineStyle = xlContinuous
+	Selection.Font.Name = "Calibri"
+	Selection.Font.Size = 20
+	Selection.HorizontalAlignment = xlCenter
+	Selection.VerticalAlignment = xlCenter
+End Sub
+
+Sub SetStyleStatusFixed()
+	For Each cell In RngSudo
+	Select Case Len(cell)
+	Case 0
+	cell.Interior.ColorIndex = xlNone
+	cell.Font.ColorIndex = 5
+	cell.Offset(0,25).Value = "0"	'Blank
+	Case 1
+	cell.Interior.ColorIndex = 35
+	cell.Offset(0,25).Value = "3"	'Fixed
+	Case Else
+	cell.Value = ""
+	cell.Offset(0,25).Value = "0"	'Blank
+	End Select
+	Next cell
+End Sub
+
+Sub SetStyleStatusWriting()
+	If Selection.Offset(0,25).Value > 1 Then Exit Sub
+	If Len(Selection.Value) <> 1 Then Exit Sub
+	Selection.Font.Size = 20
+	Selection.Offset(0,25).Value = "2"
+	Call SetStyleStatusUnknown
+End Sub
+
+Sub SetStyleStatusConfirmed()
+	For Each cell In RngSudo
+	If cell.Offset(0,25).Value > 2 Then GoTo NextCell
+	cell.Value = ""
+NextCell:
+	Next cell
+End Sub
+
+Sub SetStyleStatusUnknown()
+	Dim Guess As String, i As Integer, r As String, RngGus As Range
+	Set DicA = CreateObject("Scripting.Dictionary")
+	DicA.Add "1", "1"
+	DicA.Add "2", "4"
+	DicA.Add "3", "7"
+	DicA.Add "4", "28"
+	DicA.Add "5", "31"
+	DicA.Add "6", "34"
+	DicA.Add "7", "55"
+	DicA.Add "8", "58"
+	DicA.Add "9", "61"
+	For Each cell In RngSudo
+	If cell.Offset(0, 25).Value = "0" Then cell.Value = ""
+	Next cell
+	For Each cell In RngSudo
+	If cell.Offset(0,25).Value = "0" Then
+	r = cell.Offset(0, 15).Value
+	Set RngA = RngSudo(DicA.Item(r)).Resize(3, 3)
+	Set RngB = Intersect(RngSudo, cell.EntireColumn)
+	Set RngC = Intersect(RngSudo, cell.EntireRow)
+
+	cell.Interior.ColorIndex = xlNone
+	cell.Font.ColorIndex = 0
+	cell.WrapText = True
+	cell.Font.Size = 10
+	For i = 1 To 9
+		If Application.CountIf(RngA, i) + Application.CountIf(RngB, i) + Application.CountIf(RngC, i) Then
+		Guess = Guess & "   "
+		Else
+		Guess = Guess & i & "  "
+		End If
+	Next
+	cell.Value = Left(Guess, 25)
+	Guess = ""
+	End If
+	Next cell
+End Sub
+
+Private Sub Worksheet_SelectionChange(ByVal Target As Range)
+	If Target.Count > 1 Then Exit Sub
+	If Not Application.Intersect([L2:L10], Target) Is Nothing Then
+		MsgBox 1
+	End If
+	If Not Application.Intersect([N2:N4], Target) Is Nothing Then
+		Select Case Target.Value
+		Case "A"
+		Call SetStyleStatusFixed
+		Case "B"
+		Call SetStyleStatusConfirmed
+		Case "C"
+		Call SetStyleStatusUnknown
+		End Select
+	End If
+	If Not Application.Intersect([B2:J10], Target) Is Nothing Then
+		Call SetStyleStatusWriting
+	End If
+End Sub
