@@ -1,0 +1,202 @@
+Option Base 1
+Dim r%, c%, b%, br%, bc%
+Dim i%, j%
+Dim ArrMain(9, 9) As Integer, ArrStatus(9, 9) As Integer
+Dim ArrBox(9) As Integer, ArrRow(9) As Integer, ArrCol(9) As Integer
+Dim Guess As String
+Dim DicA As Object
+Dim RngSudo As Range
+
+Sub Initialize()
+	On Error Resume Next
+	Erase ArrStatus
+	Range("A1:I9").ClearContents
+'	Rows("1:10").Delete
+	Set RngSudo = Range("A1").Resize(9, 9)
+	ActiveWorkbook.Names.Add Name:="RngSudo", RefersTo:=RngSudo
+	Union(RngSudo, Range("K1:K9"), Range("M1:M5")).Select
+	Call SetStyleDefault
+	Range("K1:K9").Value = Application.Transpose(Split("1 2 3 4 5 6 7 8 9", " "))
+	Range("M1:M5").Value = Application.Transpose(Split("A B C D E", " "))
+	Range("K1:K9").Offset(0, 1).FormulaR1C1 = "=9-COUNTIF(RngSudo,RC[-1])"
+	For b = 1 To 9
+		r = Int((b - 1) / 3) * 3 + 1
+		c = ((b - 1) Mod 3) * 3 + 1
+		For i = 7 To 10
+			Range(cells(r,c).address).Resize(3, 3).Borders(i).Weight = xlMedium
+		Next
+	Next
+End Sub
+
+Sub SetStyleDefault()
+	Selection.EntireColumn.ColumnWidth = Application.CentimetersToPoints(0.225)
+	Selection.EntireRow.RowHeight = Application.CentimetersToPoints(1.33)
+	Selection.Borders.LineStyle = xlContinuous
+	Selection.Font.Name = "Calibri"
+	Selection.Font.Size = 20
+	Selection.HorizontalAlignment = xlCenter
+	Selection.VerticalAlignment = xlCenter
+	Selection.WrapText = True
+	Selection.Interior.ColorIndex = xlNone
+End Sub
+
+Sub SetStyleStatusFixed()
+	For r = 1 to 9
+	For c = 1 to 9
+		If ArrStatus(r, c) > 3 Then Goto Nextcell
+		If Len(Cells(r,c).Value) = 1 Then
+		If ArrStatus(r, c) = 0 Then
+			Cells(r,c).Font.ColorIndex = 5
+			Cells(r,c).Interior.ColorIndex = 35
+			ArrStatus(r, c) = 5
+		Else
+			ArrStatus(r, c) = 4
+		End If
+		Else
+		Cells(r,c).Value = ""
+		Cells(r,c).Font.Size = 10
+		ArrStatus(r, c) = 1
+		End If
+Nextcell:
+	Next
+	Next
+End Sub
+
+Sub SetStyleStatusConfirmed()
+	For r = 1 to 9
+	For c = 1 to 9
+		If ArrStatus(r, c) > 2 Then Goto Nextcell
+		If Len(Cells(r,c).Value) = 1 Then 
+		Cells(r,c).Font.Size = 20
+		ArrStatus(r, c) = 3
+		Else
+		Cells(r,c).Value = ""
+		Cells(r,c).Font.Size = 10
+		ArrStatus(r, c) = 1
+		End If
+Nextcell:
+	Next
+	Next
+	Call Main
+End Sub
+
+Sub ClearGuess()
+	For r = 1 to 9
+	For c = 1 to 9
+		If ArrStatus(r, c) < 4 Then
+		Cells(r,c).Value = ""
+		Cells(r,c).Font.Size = 10
+		ArrStatus(r, c) = 1
+		End If
+	Next
+	Next
+End Sub
+
+Sub Main()
+	Call RefreshMain
+	Call GuessAnswer
+End Sub
+
+Sub RefreshMain()
+	Erase ArrMain
+	For r = 1 To 9
+		For c = 1 To 9
+		If Len(Cells(r, c).Value) = 1 Then ArrMain(r, c) = Cells(r, c).Value
+		Next
+	Next
+End Sub
+
+Sub GuessAnswer()
+	Set DicA = CreateObject("scripting.dictionary")
+	For r = 1 To 9
+		For c = 1 To 9
+		DicA.RemoveAll
+		Guess = ""
+		
+		If ArrMain(r, c) = 0 Then
+		b = Int((r - 1) / 3) * 3 + Int((c - 1) / 3) + 1
+		For i = 1 To 9
+			ArrRow(i) = ArrMain(r, i)
+			ArrCol(i) = ArrMain(i, c)
+			ArrBox(i) = ArrMain(Int((i - 1) / 3) + 1 + Int((b - 1) / 3) * 3, (i - 1) Mod 3 + 1 + ((b - 1) Mod 3) * 3)
+			DicA(ArrBox(i)) = ""
+			DicA(ArrRow(i)) = ""
+			DicA(ArrCol(i)) = ""
+		Next
+		For i = 1 To 9
+			If Not DicA.exists(i) Then Guess = Guess & i
+		Next
+		Cells(r, c).Value = Guess
+		ArrStatus(r, c) = 2
+		End If
+		Next
+	Next
+End Sub
+
+
+
+
+Private Sub Worksheet_SelectionChange(ByVal Target As Range)
+	If Target.Count > 1 Then Exit Sub
+	If Not Application.Intersect([K1:K9], Target) Is Nothing Then
+		MsgBox 1
+	End If
+	If Not Application.Intersect([M1:M5], Target) Is Nothing Then
+		Select Case Target.Value
+		Case "A"
+		Call Initialize
+		Case "B"
+		Call SetStyleStatusFixed
+		Case "C"
+		Call SetStyleStatusConfirmed
+		Case "D"
+		Call ClearGuess
+		Case "E"
+		Call Main
+		End Select
+		Range("O1").Resize(9,9).Value = ArrStatus
+	End If
+	If Not Application.Intersect([A1:I9], Target) Is Nothing Then
+		If (ArrStatus(Target.Row, Target.Column) < 3)*(Len(Target.Value) = 1) Then Call SetStyleStatusConfirmed
+		Range("O1").Resize(9,9).Value = ArrStatus
+	End If
+End Sub
+
+
+
+
+Sub TestConvertBIRC()
+	Dim b%, i%, r%, c%
+	For b = 1 To 9
+	For i = 1 To 9
+		r = Int((i - 1) / 3) + 1 + Int((b - 1) / 3) * 3
+		c = (i - 1) Mod 3 + 1 + ((b - 1) Mod 3) * 3
+		Range("A1:D1") = Split("b i r c", " ")
+		Cells((b - 1) * 9 + i + 1, 1) = b
+		Cells((b - 1) * 9 + i + 1, 2) = i
+		Cells((b - 1) * 9 + i + 1, 3) = r
+		Cells((b - 1) * 9 + i + 1, 4) = c
+	Next
+	Next
+End Sub
+
+Sub TestConvertBox()
+	For r = 1 To 9
+		For c = 1 To 9
+		b = Int((r - 1) / 3) * 3 + Int((c - 1) / 3) + 1
+		Cells(r + 1, c + 5).Value = b
+		Next
+	Next
+End Sub
+
+Sub TestConvertBRBC()
+	For r = 1 To 9
+		For c = 1 To 9
+		b = Cells(r + 1, c + 5).Value
+		i = Cells(r + 11, c + 5).Value
+		br = Int((i - 1) / 3) + 1 + Int((b - 1) / 3) * 3
+		bc = (i - 1) Mod 3 + 1 + ((b - 1) Mod 3) * 3
+		Cells(r + 21, c + 5).Value = br & "," & bc
+		Next
+	Next
+End Sub
